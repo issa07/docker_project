@@ -23,7 +23,7 @@ services:
     # PHPMYADMIN
     phpmyadmin:
         image: phpmyadmin
-        container_name: phpmyadmin-container2
+        container_name: phpmyadmin-container
         depends_on:
             - db
         ports:
