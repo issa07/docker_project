@@ -1,0 +1,169 @@
+version: '3.7'
+
+networks:
+    mynet:
+        # external: true
+        # name: host
+services:
+
+# CONTAINER POUR LE PROJET SYMFONY
+    # MYSQL
+    db:
+        image: mysql
+        volumes:
+            - "./.data/db:/var/lib/mysql"
+        ports:
+            - 4306:3306
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+            MYSQL_DATABASE: ${MYSQL_DATABASE}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
+    # PHPMYADMIN
+    phpmyadmin:
+        image: phpmyadmin
+        container_name: phpmyadmin-container2
+        depends_on:
+            - db
+        ports:
+            - 8082:80
+        restart: always
+        environment:
+            PMA_HOST: db
+        networks:
+            - mynet
+
+    # PHP
+    php:
+        build:
+            context: php7-fpm
+            # dockerfile: ./php7-fpm/Dockerfile
+            args:
+                TIMEZONE: ${TIMEZONE}
+        ports:
+            - 9000:9000
+        volumes:
+            - ./app:/var/www/symfony
+            - ./nginx/symfony.conf:/etc/nginx/conf.d/default.conf 
+            - ./logs/symfony:/var/www/symfony/app/logs
+        networks:
+            - mynet
+
+    # NGINX
+    nginx:
+        build: nginx
+        ports:
+            - 8080:80
+        volumes_from:
+            - php
+        volumes:
+            # - ./app:/var/www/symfony
+            - ./logs/nginx/:/var/log/nginx
+        networks:
+            - mynet
+
+
+
+# CONTAINER POUR ELASTICSEARCH & LOGSTASH & KIBANA
+    # Elasticsearch
+    elasticsearch:
+        image: elasticsearch:7.9.2
+        ports:
+            - 9200:9200
+        environment:
+            - discovery.type=single-node
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+        networks:
+            - mynet
+        
+    # kibana
+    kibana:
+        image: kibana:7.9.2
+        ports:
+            - 5601:5601
+        networks:
+            - mynet
+  
+    # logstash
+    logstash:
+        image: logstash:7.9.2
+        ports:
+            - "5000:5000"
+        volumes:
+            -   type: bind
+                source: ./logstash_pipeline/
+                target: /usr/share/logstash/pipeline
+                read_only: true
+        networks:
+            - mynet
+
+
+
+
+    # elk:
+    #     image: willdurand/elk
+    #     ports:
+    #         - 81:80
+    #     volumes:
+    #         - ./elk/logstash:/etc/logstash
+    #         - ./elk/logstash/patterns:/opt/logstash/patterns
+    #     volumes_from:
+    #         - php
+    #         - nginx
+    #         # - elasticsearch
+    #     networks:
+    #         - mynet
+
+
+
+
+
+
+
+
+
+
+
+#     # Filebeat
+#     filebeat:
+#         image: docker.elastic.co/beats/filebeat:7.15.0
+#         # hostname: "{{.Node.Hostname}}-filebeat"
+#         user: root
+#         networks:
+#             - mynet
+#         configs:
+#             -   source: fb_config
+#                 target: /usr/share/filebeat/filebeat.yml
+#         volumes:
+#             -   ./filebeat:/usr/share/filebeat/data
+#             -   /Var/run/docker.sock:/var/run/docker.sock
+#             # This is needed for filebeat to load container log path as specified in filebeat.yml
+#             -   /var/lib/docker/containers/:/var/lib/docker/containers/:ro
+
+#             # # This is needed for filebeat to load jenkins build log path as specified in filebeat.yml
+#             # - /var/lib/docker/volumes/jenkins_home/_data/jobs/:/var/lib/docker/volumes/jenkins_home/_data/jobs/:ro
+
+#             # This is needed for filebeat to load logs for system and auth modules
+#             -   /var/log/:/var/log/:ro
+#             # This is needed for filebeat to load logs for auditd module. you might have to install audit system
+#             # on ubuntu first (sudo apt-get install -y auditd audispd-plugins)
+#             -   /var/log/audit/:/var/log/audit/:ro
+#         environment:
+#             -   ELASTICSEARCH_HOST=node1
+#             -   KIBANA_HOST=node1
+#             # -   ELASTICSEARCH_USERNAME=elastic
+#             # -   ELASTICSEARCH_PASSWORD=changeme
+#             # disable strict permission checks
+#         command: ["--strict.perms=false"]
+#         deploy:
+#             mode: global
+
+
+# # config   
+# configs:
+#     fb_config:
+#         file: ./filebeat/filebeat.yml
