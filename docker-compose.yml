@@ -20,7 +20,7 @@ services:
             MYSQL_USER: ${MYSQL_USER}
             MYSQL_PASSWORD: ${MYSQL_PASSWORD}
 
-    # PHPMYADMIN
+    # PHPMYADMIN #
     phpmyadmin:
         image: phpmyadmin
         container_name: phpmyadmin-container
